@@ -46,5 +46,8 @@ copy into SOLUTION_CENTER_ARTICLES
 -- Run the following statement to create a Snowflake managed internal stage to store the sample image files.
  create or replace stage DASH_IMAGE_FILES encryption = (TYPE = 'SNOWFLAKE_SSE') directory = ( ENABLE = true );
 
+-- Run the following statement to create a Snowflake managed internal stage to store the sample audio files.
+create or replace stage DASH_AUDIO_FILES encryption = (TYPE = 'SNOWFLAKE_SSE') directory = ( ENABLE = true );
+
 -- Enable cross-region inference
 ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';
