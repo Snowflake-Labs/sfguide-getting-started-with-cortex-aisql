@@ -1,0 +1,34 @@
+# Snowflake Cortex AISQL Demo Requirements
+# ==========================================
+# 
+# Install all dependencies:
+#   pip install -r requirements.txt
+#
+# Or install in a virtual environment:
+#   python -m venv venv
+#   source venv/bin/activate  # On Windows: venv\Scripts\activate
+#   pip install -r requirements.txt
+
+# Core Snowflake Dependencies
+snowflake-snowpark-python>=1.11.0
+snowflake-connector-python>=3.5.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+plotly>=5.18.0
+
+# Configuration Management
+toml>=0.10.2
+
+# Jupyter Notebook Support (optional, for local development)
+jupyter>=1.0.0
+jupyterlab>=4.0.0
+ipython>=8.12.0
+ipykernel>=6.25.0
+
+# Additional Utilities
+python-dotenv>=1.0.0  # For environment variable management (optional)
+

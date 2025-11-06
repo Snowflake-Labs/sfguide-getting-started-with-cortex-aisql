@@ -12,7 +12,7 @@ USE WAREHOUSE AISQL_WH;
 SELECT 
     relative_path,
     user_id,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}) as extracted_text,
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING as extracted_text,
     created_at
 FROM images
 WHERE relative_path LIKE 'screenshot%'
@@ -27,8 +27,8 @@ SELECT
     relative_path,
     user_id,
     img_file,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}) as extracted_text,
-    LENGTH(AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'})) as text_length,
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING as extracted_text,
+    LENGTH(AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING) as text_length,
     created_at
 FROM images
 WHERE relative_path LIKE 'screenshot%';
@@ -51,7 +51,7 @@ SELECT
     relative_path,
     user_id,
     img_file,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'LAYOUT'}) as layout_data,
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'LAYOUT'))['content']::STRING as layout_data,
     created_at
 FROM images
 WHERE relative_path LIKE 'screenshot%'
@@ -98,7 +98,7 @@ SELECT
     relative_path,
     user_id,
     img_file,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}) as extracted_text,
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING as extracted_text,
     CASE 
         WHEN relative_path LIKE 'screenshot%' THEN 'Screenshot'
         WHEN relative_path LIKE '%before%' THEN 'Before Image'
@@ -126,7 +126,7 @@ CREATE OR REPLACE TABLE ocr_vs_vision AS
 SELECT 
     relative_path,
     user_id,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}) as ocr_text,
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING as ocr_text,
     AI_COMPLETE('pixtral-large', 
         PROMPT('Describe what you see in this image and extract any visible text.', img_file)) as vision_description,
     created_at

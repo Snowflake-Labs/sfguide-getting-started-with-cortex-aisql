@@ -12,55 +12,74 @@ This repository provides comprehensive examples and demonstrations of **ALL** Sn
 - Snowflake account with Cortex AISQL enabled
 - Appropriate permissions (CORTEX_USER database role)
 - Snowflake CLI or Snowsight access
+- For local Jupyter notebooks: Python 3.8+ and dependencies from `requirements.txt`
+
+### Installation (for Local Jupyter)
+
+If you plan to run notebooks locally (outside of Snowflake Notebooks):
+
+```bash
+# Clone or download this repository
+cd sfguide-getting-started-with-cortex-aisql
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Verify installation
+python verify_setup.py
+
+# Configure Snowflake connection (see JUPYTER_SETUP.md for details)
+# Create ~/.snowflake/connections.toml with your credentials
+```
 
 ### Setup
 
-1. **Run the setup scripts in order** (numbered for easy execution):
+1. **Run the single setup script**:
 ```sql
--- Step 1: Create database, schema, and tables
+-- This script does everything: creates DB, loads data, sets up stages
 @00_setup.sql
 
--- Step 2: Load image files (upload data/images/* to stage first)
-@01_images.sql
-
--- Step 3: Load audio files (upload data/audio/* to stage first)
-@02_audio.sql
+-- Then upload media files to stages (see instructions in script comments)
+PUT file://data/images/* @AISQL_IMAGE_FILES;
+PUT file://data/audio/* @AISQL_AUDIO_FILES;
 ```
 
 2. **Explore the examples**:
    - Original demo: `03_cortex_aisql_original.ipynb`
-   - Extended demos: `notebooks/` (01-05)
+   - Extended demos: `notebooks/01-05` (work in both Snowflake Notebooks and local Jupyter)
    - Individual functions: `sql_scripts/`
+
+> **Note:** All notebooks now support both Snowflake Notebooks (native session) and local Jupyter environments (via `~/.snowflake/connections.toml`). See `NOTEBOOK_CHANGES.md` for details.
 
 ## Repository Structure
 
 ```
 sfguide-getting-started-with-cortex-aisql/
 ├── README.md                              # This file
+├── JUPYTER_SETUP.md                       # Local Jupyter setup guide
 ├── LICENSE                                # License information
 │
-├── 00_setup.sql                           # Step 1: Database setup
-├── 01_images.sql                          # Step 2: Load images
-├── 02_audio.sql                           # Step 3: Load audio
-├── 03_cortex_aisql_original.ipynb        # Original quickstart demo
+├── 00_setup.sql                           # Complete setup (run this first!)
+├── requirements.txt                       # Python dependencies
 ├── snowbooks_extras.py                    # Snowflake Notebooks utility
 │
 ├── sql_scripts/                           # SQL demonstrations by function
-│   ├── embedding_similarity.sql           # AI_EMBED, AI_SIMILARITY
-│   ├── extraction.sql                     # AI_EXTRACT
-│   ├── sentiment_analysis.sql             # AI_SENTIMENT
-│   ├── translation.sql                    # AI_TRANSLATE
-│   ├── summarization.sql                  # SUMMARIZE, AI_SUMMARIZE_AGG
-│   ├── document_parsing.sql               # AI_PARSE_DOCUMENT
-│   ├── helper_functions.sql               # AI_COUNT_TOKENS, PROMPT, TRY_COMPLETE, TO_FILE
-│   └── cortex_guard.sql                   # Cortex Guard safety filtering
+│   ├── 01_sentiment_analysis.sql          # AI_SENTIMENT
+│   ├── 01_extraction.sql                  # AI_EXTRACT
+│   ├── 02_embedding_similarity.sql        # AI_EMBED, AI_SIMILARITY
+│   ├── 03_document_parsing.sql            # AI_PARSE_DOCUMENT
+│   ├── 04_summarization.sql               # SUMMARIZE, AI_SUMMARIZE_AGG
+│   ├── 04_translation.sql                 # AI_TRANSLATE
+│   ├── 05_helper_functions.sql            # AI_COUNT_TOKENS, PROMPT
+│   └── 05_cortex_guard.sql                # Cortex Guard safety filtering
 │
 ├── notebooks/                             # Extended interactive demos
 │   ├── 01_text_analytics.ipynb            # Text analysis functions
 │   ├── 02_embeddings_similarity.ipynb     # Semantic search & embeddings
 │   ├── 03_multimodal_analytics.ipynb      # Images & audio processing
 │   ├── 04_aggregation_translation.ipynb   # Aggregation & translation
-│   └── 05_advanced_features.ipynb         # Advanced features & helpers
+│   ├── 05_advanced_features.ipynb         # Advanced features & helpers
+    └── xx_cortex_aisql_original.ipynb        # Original quickstart demo
 │
 └── data/                                  # Sample data files
     ├── emails.csv                         # Customer email data
@@ -73,14 +92,14 @@ sfguide-getting-started-with-cortex-aisql/
 
 | File | Functions | Description |
 |------|-----------|-------------|
-| `embedding_similarity.sql` | AI_EMBED, AI_SIMILARITY | Generate embeddings and find similar content |
-| `extraction.sql` | AI_EXTRACT | Extract structured information from unstructured text |
-| `sentiment_analysis.sql` | AI_SENTIMENT | Analyze sentiment scores across data sources |
-| `translation.sql` | AI_TRANSLATE | Translate text between multiple languages |
-| `summarization.sql` | SUMMARIZE, AI_SUMMARIZE_AGG | Summarize individual texts and aggregate summaries |
-| `document_parsing.sql` | AI_PARSE_DOCUMENT | Extract text from images using OCR |
-| `helper_functions.sql` | AI_COUNT_TOKENS, PROMPT, TRY_COMPLETE, TO_FILE | Helper functions for optimization and error handling |
-| `cortex_guard.sql` | Cortex Guard | Safety filtering for AI responses |
+| `01_sentiment_analysis.sql` | AI_SENTIMENT | Analyze sentiment scores across data sources |
+| `01_extraction.sql` | AI_EXTRACT | Extract structured information from unstructured text |
+| `02_embedding_similarity.sql` | AI_EMBED, AI_SIMILARITY | Generate embeddings and find similar content |
+| `03_document_parsing.sql` | AI_PARSE_DOCUMENT | Extract text from images using OCR |
+| `04_translation.sql` | AI_TRANSLATE | Translate text between multiple languages |
+| `04_summarization.sql` | SUMMARIZE, AI_SUMMARIZE_AGG | Summarize individual texts and aggregate summaries |
+| `05_helper_functions.sql` | AI_COUNT_TOKENS, PROMPT | Helper functions for optimization |
+| `05_cortex_guard.sql` | Cortex Guard | Safety filtering for AI responses (regional availability) |
 
 ### Jupyter Notebooks (`notebooks/`)
 
@@ -551,31 +570,29 @@ ORDER BY start_time DESC;
 
 For issues, questions, or contributions, please refer to the Snowflake Community or your Snowflake account team.
 
-## Execution Order
-
-For first-time setup, run files in numbered order:
+## Quick Setup
 
 ```bash
-# 1. Setup database and schema
+# 1. Run the complete setup script (creates everything)
 snowsql -f 00_setup.sql
 
-# 2. Upload images to stage (manual step via Snowsight or SnowSQL PUT)
-# PUT file://data/images/* @AISQL_IMAGE_FILES;
+# 2. Upload media files to stages
+PUT file://data/images/* @AISQL_IMAGE_FILES;
+PUT file://data/audio/* @AISQL_AUDIO_FILES;
 
-# 3. Load images into table
-snowsql -f 01_images.sql
+# 3. Verify setup
+USE DATABASE AISQL_DB;
+SELECT COUNT(*) FROM emails;        -- Should return ~50
+SELECT COUNT(*) FROM images;        -- Should match uploaded files
+SELECT COUNT(*) FROM voicemails;    -- Should match uploaded files
 
-# 4. Upload audio to stage (manual step)
-# PUT file://data/audio/* @AISQL_AUDIO_FILES;
-
-# 5. Load audio into table
-snowsql -f 02_audio.sql
-
-# 6. Explore demos
+# 4. Start exploring!
 # - Open 03_cortex_aisql_original.ipynb (original quickstart)
 # - Open notebooks/01-05 (extended demos)
 # - Run any sql_scripts/*.sql file
 ```
+
+**Note:** The `00_setup.sql` script contains detailed comments explaining each step, verification queries, and next steps. It's a complete, self-documenting setup!
 
 ## License
 

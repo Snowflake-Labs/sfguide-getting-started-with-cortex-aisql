@@ -27,7 +27,7 @@ SELECT
     'Guarded Response' as response_type,
     AI_COMPLETE('llama3.1-8b', 
         'Tell me about customer service best practices',
-        {'guard_enable': true}) as response;
+        {'guardrails': true}) as response;
 
 -- ============================================================================
 -- Example 2: Test Cortex Guard with various prompt types
@@ -52,9 +52,9 @@ SELECT
     prompt_type,
     test_prompt,
     AI_COMPLETE('llama3.1-8b', test_prompt) as response_without_guard,
-    AI_COMPLETE('llama3.1-8b', test_prompt, {'guard_enable': true}) as response_with_guard,
+    AI_COMPLETE('llama3.1-8b', test_prompt, {'guardrails': true}) as response_with_guard,
     CASE 
-        WHEN AI_COMPLETE('llama3.1-8b', test_prompt, {'guard_enable': true}) IS NULL 
+        WHEN AI_COMPLETE('llama3.1-8b', test_prompt, {'guardrails': true}) IS NULL 
         THEN 'Filtered by Guard'
         ELSE 'Passed Guard'
     END as guard_status
@@ -75,11 +75,11 @@ SELECT
     SUBSTR(content, 1, 150) as customer_message,
     AI_COMPLETE('llama3.1-8b', 
         PROMPT('Generate a professional customer service response to this inquiry: {0}', content),
-        {'guard_enable': true}) as safe_response,
+        {'guardrails': true}) as safe_response,
     CASE 
         WHEN AI_COMPLETE('llama3.1-8b', 
             PROMPT('Generate a professional customer service response to this inquiry: {0}', content),
-            {'guard_enable': true}) IS NULL 
+            {'guardrails': true}) IS NULL 
         THEN 'Response filtered'
         ELSE 'Response approved'
     END as guard_status,

@@ -9,13 +9,14 @@ USE WAREHOUSE AISQL_WH;
 -- ============================================================================
 
 -- Example 1: Count tokens for email content
+-- AI_COUNT_TOKENS syntax: AI_COUNT_TOKENS('function_name', 'model_name', input_text)
 SELECT 
     ticket_id,
     user_id,
     SUBSTR(content, 1, 100) as content_preview,
     LENGTH(content) as character_count,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count,
-    ROUND(AI_COUNT_TOKENS('claude-3-7-sonnet', content) * 1.0 / LENGTH(content), 3) as tokens_per_char
+    AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b', content) as token_count,
+    ROUND(AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b', content) * 1.0 / LENGTH(content), 3) as tokens_per_char
 FROM emails
 ORDER BY token_count DESC
 LIMIT 10;
@@ -29,9 +30,9 @@ SELECT
     ticket_id,
     content,
     LENGTH(content) as char_length,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as claude_tokens,
-    AI_COUNT_TOKENS('llama3.1-8b', content) as llama_tokens,
-    AI_COUNT_TOKENS('mistral-large2', content) as mistral_tokens,
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as llama_70b_tokens,
+    AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b', content) as llama_8b_tokens,
+    AI_COUNT_TOKENS('ai_complete', 'mistral-large2', content) as mistral_tokens,
     created_at
 FROM emails
 LIMIT 100;
@@ -56,11 +57,11 @@ WITH cost_estimates AS (
     SELECT 
         ticket_id,
         content,
-        AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count,
+        AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as token_count,
         -- Example: $0.003 per 1K input tokens, $0.015 per 1K output tokens
-        (AI_COUNT_TOKENS('claude-3-7-sonnet', content) / 1000.0) * 0.003 as estimated_input_cost,
+        (AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) / 1000.0) * 0.003 as estimated_input_cost,
         -- Assume output is ~30% of input
-        (AI_COUNT_TOKENS('claude-3-7-sonnet', content) * 0.3 / 1000.0) * 0.015 as estimated_output_cost
+        (AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) * 0.3 / 1000.0) * 0.015 as estimated_output_cost
     FROM emails
 )
 SELECT 
@@ -81,9 +82,9 @@ LIMIT 10;
 SELECT 
     ticket_id,
     SUBSTR(content, 1, 100) as content_preview,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as token_count
 FROM emails
-WHERE AI_COUNT_TOKENS('claude-3-7-sonnet', content) < 500
+WHERE AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) < 500
 ORDER BY token_count DESC
 LIMIT 10;
 
@@ -91,10 +92,10 @@ LIMIT 10;
 SELECT 
     ticket_id,
     SUBSTR(content, 1, 100) as content_preview,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count,
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as token_count,
     'Needs truncation' as note
 FROM emails
-WHERE AI_COUNT_TOKENS('claude-3-7-sonnet', content) > 2000
+WHERE AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) > 2000
 ORDER BY token_count DESC
 LIMIT 10;
 
@@ -209,21 +210,6 @@ SELECT
 FROM completion_comparison
 GROUP BY completion_status;
 
--- ============================================================================
--- TO_FILE: Create File References
--- ============================================================================
-
--- Example 11: TO_FILE with stage files
--- (Already used in images.sql and audio.sql, but demonstrating explicitly)
-
--- Show file references
-SELECT 
-    relative_path,
-    file_url,
-    TO_FILE(file_url) as file_reference,
-    TYPEOF(TO_FILE(file_url)) as data_type
-FROM directory(@AISQL_IMAGE_FILES)
-LIMIT 5;
 
 -- ============================================================================
 -- Example 12: Using TO_FILE with AI functions
@@ -256,7 +242,7 @@ WITH prompt_prep AS (
         ticket_id,
         content,
         PROMPT('Please analyze this customer feedback and provide recommendations: {0}', content) as full_prompt,
-        AI_COUNT_TOKENS('claude-3-7-sonnet', 
+        AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', 
             PROMPT('Please analyze this customer feedback and provide recommendations: {0}', content)) as prompt_tokens
     FROM emails
 )
@@ -291,14 +277,14 @@ SELECT
     ticket_id,
     user_id,
     content,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count,
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as token_count,
     CASE 
-        WHEN AI_COUNT_TOKENS('claude-3-7-sonnet', content) > 4000 THEN NULL
+        WHEN AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) > 4000 THEN NULL
         ELSE SNOWFLAKE.CORTEX.TRY_COMPLETE('claude-3-7-sonnet', 
             PROMPT('Summarize: {0}', content))
     END as summary,
     CASE 
-        WHEN AI_COUNT_TOKENS('claude-3-7-sonnet', content) > 4000 THEN 'Skipped - Too Long'
+        WHEN AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) > 4000 THEN 'Skipped - Too Long'
         WHEN SNOWFLAKE.CORTEX.TRY_COMPLETE('claude-3-7-sonnet', 
             PROMPT('Summarize: {0}', content)) IS NULL THEN 'Failed'
         ELSE 'Success'
@@ -323,9 +309,9 @@ ORDER BY count DESC;
 -- Calculate total token usage for a batch operation
 WITH token_budget AS (
     SELECT 
-        SUM(AI_COUNT_TOKENS('claude-3-7-sonnet', content)) as total_input_tokens,
+        SUM(AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content)) as total_input_tokens,
         -- Estimate output tokens (typically 20-50% of input)
-        SUM(AI_COUNT_TOKENS('claude-3-7-sonnet', content)) * 0.3 as estimated_output_tokens,
+        SUM(AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content)) * 0.3 as estimated_output_tokens,
         COUNT(*) as total_emails
     FROM emails
 )
@@ -355,10 +341,10 @@ WITH base_prompts AS (
 SELECT 
     ticket_id,
     constructed_prompt,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', constructed_prompt) as prompt_tokens,
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', constructed_prompt) as prompt_tokens,
     CASE 
-        WHEN AI_COUNT_TOKENS('claude-3-7-sonnet', constructed_prompt) < 100 THEN 'Too Short'
-        WHEN AI_COUNT_TOKENS('claude-3-7-sonnet', constructed_prompt) > 3000 THEN 'Too Long'
+        WHEN AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', constructed_prompt) < 100 THEN 'Too Short'
+        WHEN AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', constructed_prompt) > 3000 THEN 'Too Long'
         ELSE 'Valid'
     END as validation_status
 FROM base_prompts;
@@ -370,27 +356,4 @@ SELECT
     ROUND(AVG(prompt_tokens), 0) as avg_tokens
 FROM validated_prompts
 GROUP BY validation_status;
-
--- ============================================================================
--- Example 17: Helper functions for multimodal inputs
--- ============================================================================
-
--- Count tokens for combined text and image prompts
-WITH multimodal_prompts AS (
-    SELECT 
-        i.relative_path,
-        e.ticket_id,
-        e.content,
-        PROMPT('User reported an issue. Email: {0}. Screenshot: {1}', e.content, i.img_file) as combined_prompt
-    FROM images i
-    CROSS JOIN emails e
-    WHERE i.relative_path LIKE 'screenshot%'
-    LIMIT 5
-)
-SELECT 
-    relative_path,
-    ticket_id,
-    AI_COUNT_TOKENS('pixtral-large', combined_prompt) as multimodal_tokens,
-    SUBSTR(combined_prompt, 1, 100) as prompt_preview
-FROM multimodal_prompts;
 
