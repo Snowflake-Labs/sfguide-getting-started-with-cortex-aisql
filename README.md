@@ -25,9 +25,6 @@ cd sfguide-getting-started-with-cortex-aisql
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Verify installation
-python verify_setup.py
-
 # Configure Snowflake connection (see JUPYTER_SETUP.md for details)
 # Create ~/.snowflake/connections.toml with your credentials
 ```
@@ -45,11 +42,11 @@ PUT file://data/audio/* @AISQL_AUDIO_FILES;
 ```
 
 2. **Explore the examples**:
-   - Original demo: `03_cortex_aisql_original.ipynb`
+   - Original demo: `notebooks/xx_cortex_aisql_original.ipynb`
    - Extended demos: `notebooks/01-05` (work in both Snowflake Notebooks and local Jupyter)
    - Individual functions: `sql_scripts/`
 
-> **Note:** All notebooks now support both Snowflake Notebooks (native session) and local Jupyter environments (via `~/.snowflake/connections.toml`). See `NOTEBOOK_CHANGES.md` for details.
+> **Note:** All notebooks support both Snowflake Notebooks (native session) and local Jupyter environments (via `~/.snowflake/connections.toml`).
 
 ## Repository Structure
 
@@ -79,7 +76,7 @@ sfguide-getting-started-with-cortex-aisql/
 │   ├── 03_multimodal_analytics.ipynb      # Images & audio processing
 │   ├── 04_aggregation_translation.ipynb   # Aggregation & translation
 │   ├── 05_advanced_features.ipynb         # Advanced features & helpers
-    └── xx_cortex_aisql_original.ipynb        # Original quickstart demo
+│   └── xx_cortex_aisql_original.ipynb     # Original quickstart demo
 │
 └── data/                                  # Sample data files
     ├── emails.csv                         # Customer email data
@@ -109,7 +106,8 @@ sfguide-getting-started-with-cortex-aisql/
 | `02_embeddings_similarity.ipynb` | Semantic Search | AI_EMBED, AI_SIMILARITY, semantic search, clustering |
 | `03_multimodal_analytics.ipynb` | Images & Audio | AI_COMPLETE (images), AI_TRANSCRIBE, AI_PARSE_DOCUMENT, TO_FILE |
 | `04_aggregation_translation.ipynb` | Aggregation & Translation | AI_AGG, AI_SUMMARIZE_AGG, AI_TRANSLATE, AI_FILTER |
-| `05_advanced_features.ipynb` | Advanced Features | Cortex Guard, AI_COUNT_TOKENS, PROMPT, TRY_COMPLETE |
+| `05_advanced_features.ipynb` | Advanced Features | Cortex Guard, AI_COUNT_TOKENS, PROMPT |
+| `xx_cortex_aisql_original.ipynb` | Original Demo | Quick overview of core AISQL functions |
 
 ## Complete AISQL Function Reference
 
@@ -247,9 +245,11 @@ Extract structured information from unstructured text.
 SELECT 
     ticket_id,
     content,
-    AI_EXTRACT(content, 'What is the order ID mentioned?') as order_id,
-    AI_EXTRACT(content, 'What is the main issue?') as main_issue,
-    AI_EXTRACT(content, 'What does the customer want?') as requested_action
+    AI_EXTRACT(content, {
+        'order_id': 'What is the order ID mentioned?',
+        'main_issue': 'What is the main issue?',
+        'requested_action': 'What does the customer want?'
+    }) as extracted_info
 FROM emails;
 ```
 
@@ -258,18 +258,14 @@ FROM emails;
 ### Sentiment Analysis
 
 #### AI_SENTIMENT
-Extract sentiment scores from text (-1 to 1).
+Analyze sentiment from text (returns categorical sentiment).
 
 ```sql
 SELECT 
     ticket_id,
     content,
-    AI_SENTIMENT(content) as sentiment_score,
-    CASE 
-        WHEN AI_SENTIMENT(content) > 0.3 THEN 'Positive'
-        WHEN AI_SENTIMENT(content) < -0.3 THEN 'Negative'
-        ELSE 'Neutral'
-    END as sentiment_category
+    AI_SENTIMENT(content) as sentiment_result,
+    AI_SENTIMENT(content)['categories'][0]['sentiment']::STRING as overall_sentiment
 FROM emails;
 ```
 
@@ -331,13 +327,13 @@ Extract text from documents using OCR or layout analysis.
 -- OCR mode
 SELECT 
     relative_path,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}) as extracted_text
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING as extracted_text
 FROM images;
 
 -- Layout mode (preserves structure)
 SELECT 
     relative_path,
-    AI_PARSE_DOCUMENT(img_file, {'mode': 'LAYOUT'}) as layout_data
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'LAYOUT'))['content']::STRING as layout_data
 FROM images;
 ```
 
@@ -352,8 +348,8 @@ Count tokens for cost estimation and optimization.
 SELECT 
     ticket_id,
     content,
-    AI_COUNT_TOKENS('claude-3-7-sonnet', content) as token_count,
-    ROUND((AI_COUNT_TOKENS('claude-3-7-sonnet', content) / 1000.0) * 0.003, 6) as estimated_cost
+    AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) as token_count,
+    ROUND((AI_COUNT_TOKENS('ai_complete', 'llama3.3-70b', content) / 1000.0) * 0.003, 6) as estimated_cost
 FROM emails
 ORDER BY token_count DESC;
 ```
@@ -374,22 +370,6 @@ FROM emails;
 
 **Use Cases:** Dynamic prompt construction, parameterized queries, template-based generation
 
-#### TRY_COMPLETE
-Error-safe version of COMPLETE (returns NULL on error).
-
-```sql
-SELECT 
-    ticket_id,
-    SNOWFLAKE.CORTEX.TRY_COMPLETE('claude-3-7-sonnet', content) as safe_response,
-    CASE 
-        WHEN SNOWFLAKE.CORTEX.TRY_COMPLETE('claude-3-7-sonnet', content) IS NULL 
-        THEN 'Failed'
-        ELSE 'Success'
-    END as status
-FROM emails;
-```
-
-**Use Cases:** Batch processing, error handling, production pipelines
 
 #### TO_FILE
 Create file references for use with AI functions.
@@ -429,13 +409,12 @@ SELECT
     ticket_id,
     user_id,
     SNOWFLAKE.CORTEX.SUMMARIZE(content) as summary,
-    AI_SENTIMENT(content) as sentiment,
+    AI_SENTIMENT(content)['categories'][0]['sentiment']::STRING as sentiment,
     AI_CLASSIFY('Classify: ' || content, 
         ARRAY_CONSTRUCT('Billing', 'Technical', 'Event', 'Refund')) as category,
-    AI_EXTRACT(content, 'What is the urgency level?') as urgency,
+    AI_EXTRACT(content, {'urgency': 'What is the urgency level?'})['urgency']::STRING as urgency,
     AI_COMPLETE('claude-3-7-sonnet', 
-        'Generate a professional response to: ' || content,
-        {'guard_enable': true}) as ai_response
+        'Generate a professional response to: ' || content) as ai_response
 FROM emails;
 ```
 
@@ -484,15 +463,16 @@ FROM emails;
 -- Analyze tickets across text, images, and audio
 CREATE TABLE unified_insights AS
 SELECT 'Email' as source, ticket_id, content as text_content,
-    AI_SENTIMENT(content) as sentiment
+    AI_SENTIMENT(content)['categories'][0]['sentiment']::STRING as sentiment
 FROM emails
 UNION ALL
-SELECT 'Voicemail', relative_path, AI_TRANSCRIBE(audio_file)['text'],
-    AI_SENTIMENT(AI_TRANSCRIBE(audio_file)['text'])
+SELECT 'Voicemail', relative_path, AI_TRANSCRIBE(audio_file)['text']::STRING,
+    AI_SENTIMENT(AI_TRANSCRIBE(audio_file)['text']::STRING)['categories'][0]['sentiment']::STRING
 FROM voicemails
 UNION ALL
-SELECT 'Screenshot', relative_path, AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}),
-    AI_SENTIMENT(AI_PARSE_DOCUMENT(img_file, {'mode': 'OCR'}))
+SELECT 'Screenshot', relative_path, 
+    AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING,
+    AI_SENTIMENT(AI_PARSE_DOCUMENT(img_file, OBJECT_CONSTRUCT('mode', 'OCR'))['content']::STRING)['categories'][0]['sentiment']::STRING
 FROM images;
 ```
 
@@ -587,12 +567,17 @@ SELECT COUNT(*) FROM images;        -- Should match uploaded files
 SELECT COUNT(*) FROM voicemails;    -- Should match uploaded files
 
 # 4. Start exploring!
-# - Open 03_cortex_aisql_original.ipynb (original quickstart)
+# - Open notebooks/xx_cortex_aisql_original.ipynb (original quickstart)
 # - Open notebooks/01-05 (extended demos)
 # - Run any sql_scripts/*.sql file
 ```
 
 **Note:** The `00_setup.sql` script contains detailed comments explaining each step, verification queries, and next steps. It's a complete, self-documenting setup!
+
+## Additional Documentation
+
+- **AISQL_FUNCTION_FIXES.md** - Detailed documentation of all AISQL function fixes and correct usage patterns
+- **JUPYTER_SETUP.md** - Complete guide for setting up local Jupyter environment
 
 ## License
 
