@@ -102,11 +102,11 @@ sfguide-getting-started-with-cortex-aisql/
 
 | Notebook | Focus Area | Functions Demonstrated |
 |----------|------------|------------------------|
-| `01_text_analytics.ipynb` | Text Analysis | AI_COMPLETE, AI_CLASSIFY, AI_SENTIMENT, AI_EXTRACT, SUMMARIZE |
+| `01_text_analytics.ipynb` | Text Analysis | AI_COMPLETE, AI_FILTER, AI_CLASSIFY, AI_SENTIMENT, AI_EXTRACT, SUMMARIZE |
 | `02_embeddings_similarity.ipynb` | Semantic Search | AI_EMBED, AI_SIMILARITY, semantic search, clustering |
-| `03_multimodal_analytics.ipynb` | Images & Audio | AI_COMPLETE (images), AI_TRANSCRIBE, AI_PARSE_DOCUMENT, TO_FILE |
+| `03_multimodal_analytics.ipynb` | Images & Audio | AI_COMPLETE (images), AI_TRANSCRIBE, AI_FILTER (images), AI_PARSE_DOCUMENT, TO_FILE |
 | `04_aggregation_translation.ipynb` | Aggregation & Translation | AI_AGG, AI_SUMMARIZE_AGG, AI_TRANSLATE, AI_FILTER |
-| `05_advanced_features.ipynb` | Advanced Features | Cortex Guard, AI_COUNT_TOKENS, PROMPT |
+| `05_advanced_features.ipynb` | Advanced Features | AI_FILTER with PROMPT, Cortex Guard, AI_COUNT_TOKENS, PROMPT |
 | `xx_cortex_aisql_original.ipynb` | Original Demo | Quick overview of core AISQL functions |
 
 ## Complete AISQL Function Reference
@@ -152,22 +152,41 @@ FROM emails;
 ### Filtering & Semantic Joins
 
 #### AI_FILTER
-Filter rows based on natural language conditions.
+Filter rows based on natural language conditions. Returns boolean (TRUE/FALSE) for classification.
 
 ```sql
--- Filter tickets about refunds
+-- Filter text with PROMPT (required for text inputs)
 SELECT * FROM emails
-WHERE AI_FILTER(PROMPT('Is this about a refund request? {0}', content));
+WHERE AI_FILTER(PROMPT('Is this about a refund request? {0}', content)) = TRUE;
+
+-- Filter satisfied customers
+SELECT ticket_id, content
+FROM emails
+WHERE AI_FILTER(PROMPT('Does the customer sound satisfied or happy? {0}', content)) = TRUE;
+
+-- Filter images (predicate first, then file)
+SELECT relative_path
+FROM images
+WHERE AI_FILTER('Does this image contain people?', img_file) = TRUE;
 
 -- Semantic join
 SELECT e.content, s.solution
 FROM emails e
 LEFT JOIN solution_center_articles s
 ON AI_FILTER(PROMPT('Does this solution address this issue? Issue: {0}, Solution: {1}', 
-    e.content, s.solution));
+    e.content, s.solution)) = TRUE;
+
+-- Aggregation with AI_FILTER
+SELECT 
+    AI_FILTER(PROMPT('Is this urgent? {0}', content)) as is_urgent,
+    COUNT(*) as count
+FROM emails
+GROUP BY is_urgent;
 ```
 
-**Use Cases:** Semantic filtering, intelligent joins, conditional processing
+**Use Cases:** Boolean classification, semantic filtering, intelligent joins, conditional processing, data segmentation
+
+**Note:** For text inputs, use `PROMPT()` to combine the predicate with the content. For file inputs (images), the predicate comes first, then the file reference.
 
 ### Aggregation & Insights
 
