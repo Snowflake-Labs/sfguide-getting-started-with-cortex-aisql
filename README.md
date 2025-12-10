@@ -1,4 +1,4 @@
-# Getting Started with Cortex AISQL
+# Getting Started with Cortex AI Functions
 
 ## Overview
 
